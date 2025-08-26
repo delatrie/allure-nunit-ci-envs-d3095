@@ -1,0 +1,45 @@
+# This workflow combines reports from two demos: for Allure 2 and for Allure 3, so both can be viewed live on GitHub Pages.
+
+name: Publish demo reports on GitHub Pages
+on:
+  push:
+    branches:
+      - allure2-report
+      - allure3-report
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  publish-reports:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Check out Allure 2 report
+        uses: actions/checkout@v5
+        with:
+          ref: 'allure2-report'
+          path: v2
+
+      - name: Check out Allure 3 report
+        uses: actions/checkout@v5
+        with:
+          ref: 'allure3-report'
+          path: v3
+
+      - name: Upload both reports as a pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: '.'
+
+      - name: Deploy GitHub pages from the pages artifact
+        uses: actions/deploy-pages@v4
