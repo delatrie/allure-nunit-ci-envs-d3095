@@ -1,6 +1,6 @@
 namespace Allure.Examples.CiEnvs.Tests;
 
-class TestClass2
+class TestClass2 : BaseTestClass
 {
     [TestCase(1, "a")]
     [TestCase(2, "b")]
