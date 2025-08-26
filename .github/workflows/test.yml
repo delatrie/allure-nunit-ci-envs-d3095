@@ -1,0 +1,29 @@
+name: Build & test
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04, ubuntu-24.04, windows-2022, windows-2025 ]
+        framework: [ 'net8.0', 'net9.0' ]
+        configuration: [ 'Debug', 'Release' ]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      - run: dotnet restore
+      - run: dotnet build --no-restore --framework ${{ matrix.framework }} --configuration ${{ matrix.configuration }}
+      - run: dotnet test --no-build --framework ${{ matrix.framework }} --configuration ${{ matrix.configuration }}
