@@ -41,11 +41,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Check out Allure config
+      - name: Check out Allure config and history
         uses: actions/checkout@v5
         with:
           sparse-checkout: |
             allurerc.mjs
+            .allure/history.jsonl
+            .gitattributes
+          lfs: true
 
       - name: Check out the report's branch
         uses: actions/checkout@v5
@@ -65,13 +68,22 @@ jobs:
       - name: Generate Allure report
         run: npx allure generate ./allure-results
 
+      - name: Configure commit name and email
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
         # We're uploading the report to a dedicated branch to merge it with Allure 2 version (see publish-reports.yml).
         # In real world, it can be uploaded directly to GitHub Pages from here.
       - name: Upload Allure 3 report
         working-directory: allure-report
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .
           git commit -m "Update the report"
           git push origin HEAD:allure3-report --force
+
+      - name: Upload history back to the repo
+        run: |
+          git add .allure/history.jsonl
+          git commit -m "Update Allure history"
+          git push origin ${GITHUB_REF}
