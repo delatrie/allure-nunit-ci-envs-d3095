@@ -2,7 +2,7 @@ name: Build & test
 on:
   push:
     branches:
-      - main
+      - allure2-demo
   workflow_dispatch:
 
 permissions:
@@ -29,3 +29,62 @@ jobs:
       - run: dotnet test --no-build --framework ${{ matrix.framework }} --configuration ${{ matrix.configuration }}
         env:
           ALLURE_LABEL_env: "${{ matrix.os }}, ${{ matrix.framework }}, ${{ matrix.configuration }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          path: "./Allure.Examples.CiEnvs.Tests/bin/${{ matrix.configuration }}/${{ matrix.framework }}/allure-results"
+          name: "AllureResults-${{ matrix.os }}-${{ matrix.framework }}-${{ matrix.configuration }}"
+
+  generate-report:
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/allure2-demo'
+    permissions:
+      contents: write
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          path: allure-results
+          pattern: AllureResults-*
+          merge-multiple: true
+
+      - name: Check out the report's branch
+        uses: actions/checkout@v5
+        with:
+          # Use PAT so that the subsequent pushes trigger the publish-reports workflow, which combines
+          # reports for both demos (Allure 2 and 3).
+          # It's not necessary in a real-world scenario, when GH Pages publishing from branch is configured
+          # and the target branch is used.
+          token: ${{ secrets.GH_PAT }}
+          ref: allure2-report
+          # We use the '/vs' suffix to keep reports for both demos separately. In a real-world, where only one
+          # Allure 2 report needs to be published, the suffix is not needed.
+          path: gh-pages/v2
+
+      - name: Generate Allure report
+        uses: simple-elf/allure-report-action@v1.13
+        with:
+          allure_results: allure-results
+          gh_pages: gh-pages
+          allure_report: allure-report
+
+          # This is actually the output directory that should be published. It contains the report and the history
+          allure_history: allure-history
+
+          # Subfolder is needed to produce correct URLs. If only one report is published to GH Pages, this option
+          # can be removed.
+          subfolder: v2
+
+        # We're uploading the report to a dedicated branch to merge it with the Allure 3 version (see publish-reports.yml).
+        # In real world, the 'allure-history' folder can be uploaded directly to the GitHub Pages branch here (e.g., with
+        # peaceiris/actions-gh-pages).
+      - name: Upload Allure 3 report
+        run: |
+          rm -rf ./gh-pages/v2/*
+          cp -r ./allure-history/v2/* ./gh-pages/v2/
+          cd ./gh-pages/v2/
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git commit -m "Update the report"
+          git push origin allure2-report
